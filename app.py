@@ -24,6 +24,7 @@ collection_todolists = db['todolists']
 collection_notes = db['notes']
 collection_recipes = db['recipes']
 collection_recommendations = db['recommendations']
+collection_gameConfigs = db['gameConfigs']
 
 # Pydantic-Modell für das Event
 class Event(BaseModel):
@@ -100,6 +101,22 @@ class Recommendation(BaseModel):
     creator: str
     description: str
     type: str
+
+    class Config:
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+class GameConfig(BaseModel): 
+    id: Optional[str] = Field(default_factory=lambda: str(ObjectId()), alias="_id")
+    configName: str
+    rufspielTarif: int
+    soloTarif: int
+    bonusTarif: int
+    allWeiter: str 
+    soloArten: List[str]
+    hochzeit: bool
+    klopfen: bool
+    ramschTarif: int
 
     class Config:
         arbitrary_types_allowed = True
@@ -546,6 +563,97 @@ def delete_recommendation():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+@app.route('/vgameConfig/get', methods=['POST'])
+def get_gameConfigs():
+    try:
+        # Hole das JSON-Payload aus der Anfrage
+        data = request.get_json()
+
+        # Hole den Typ, wenn er vorhanden ist, andernfalls leere Zeichenfolge
+        type = data.get('type', "")
+
+        # Füge eine exakte Übereinstimmung hinzu (kein $in, sondern direkte Abfrage)
+        if type != "":
+            query_conditions = { 'type': type }
+            # Führe die Abfrage aus
+            results = collection_gameConfigs.find(query_conditions)
+        else:
+            # Wenn kein Typ angegeben ist, gib alle Ergebnisse zurück
+            results = collection_gameConfigs.find()
+
+        # Konvertiere die Ergebnisse in eine Liste von Dictionaries
+        results_list = list(results)
+
+        # Konvertiere die _id-Felder von ObjectId in Strings, da JSON diese nicht direkt unterstützt
+        for gameConfig in results_list:
+            gameConfig['_id'] = str(gameConfig['_id'])
+
+        # Gib die Ergebnisse als JSON zurück
+        return jsonify(results_list)
+
+    except Exception as e:
+        # Gib einen Fehler zurück, falls etwas schiefgeht
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/vgameConfig/new', methods=['POST'])
+def create_gameConfig():
+    try:
+        data = request.get_json()
+
+        # Überprüfe, ob 'id' fehlt oder ein leerer String ist, und generiere eine neue ObjectId
+        if not data.get('_id') or data['_id'] == "":
+            data['_id'] = str(ObjectId())
+
+        gameConfig = GameConfig(**data)
+
+        gameConfig_dict = gameConfig.dict(by_alias=True)
+
+        # Füge das Event in die MongoDB ein
+        result = collection_gameConfigs.insert_one(gameConfig_dict)
+
+        # Rückgabe des eingefügten Events mit der generierten _id
+        return jsonify({"success": True, "inserted_id": str(result.inserted_id)})
+
+    except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+@app.route('/vgameConfig/edit', methods=['POST'])
+def edit_gameConfig():
+    try:
+        data = request.get_json()
+        gameConfig_id = data['_id']
+
+        update_data = {k: v for k, v in data.items() if k != '_id'}
+
+        result = collection_gameConfigs.update_one({"_id": gameConfig_id}, {"$set": update_data})
+        print("Matched Count:", result.matched_count)
+
+        if result.matched_count:
+            return jsonify({"success": True, "updated_id": str(gameConfig_id)})
+        else:
+            return jsonify({"error": "To-Do List not found"}), 404
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/vgameConfig/delete', methods=['POST'])
+def delete_gameConfig():
+    try:
+        # Hole das JSON-Payload aus der Anfrage
+        data = request.get_json()
+        gameConfig_id = data['_id']
+
+        # Bei Strings keine Konvertierung zu ObjectId vornehmen, falls sie als String gespeichert sind
+        result = collection_gameConfigs.delete_one({"_id": gameConfig_id})
+
+        if result.deleted_count:
+            return jsonify({"success": True, "deleted_id": gameConfig_id})
+        else:
+            return jsonify({"error": "Note not found"}), 404
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500    
 
 if __name__ == '__main__':
 	 app.run(host='localhost', port=8000)
