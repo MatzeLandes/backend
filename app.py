@@ -112,7 +112,7 @@ class GameConfig(BaseModel):
     rufspielTarif: int
     soloTarif: int
     bonusTarif: int
-    allWeiter: str 
+    alleWeiter: str 
     soloArten: List[str]
     hochzeit: bool
     klopfen: bool
