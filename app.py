@@ -568,19 +568,10 @@ def delete_recommendation():
 def get_gameConfigs():
     try:
         # Hole das JSON-Payload aus der Anfrage
-        data = request.get_json()
+        data = request.get_json(silent=True)
 
-        # Hole den Typ, wenn er vorhanden ist, andernfalls leere Zeichenfolge
-        type = data.get('type', "")
-
-        # Füge eine exakte Übereinstimmung hinzu (kein $in, sondern direkte Abfrage)
-        if type != "":
-            query_conditions = { 'type': type }
-            # Führe die Abfrage aus
-            results = collection_gameConfigs.find(query_conditions)
-        else:
-            # Wenn kein Typ angegeben ist, gib alle Ergebnisse zurück
-            results = collection_gameConfigs.find()
+        # Führe die Abfrage aus
+        results = collection_gameConfigs.find()
 
         # Konvertiere die Ergebnisse in eine Liste von Dictionaries
         results_list = list(results)
@@ -593,8 +584,8 @@ def get_gameConfigs():
         return jsonify(results_list)
 
     except Exception as e:
-        # Gib einen Fehler zurück, falls etwas schiefgeht
         return jsonify({'error': str(e)}), 400
+
 
 @app.route('/vgameConfig/new', methods=['POST'])
 def create_gameConfig():
